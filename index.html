@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Team Image Resizer & Converter</title>
+  <script src="https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/magick-wasm.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 40px auto; padding: 0 20px; color: #333; }
+    .card { background: #f9f9f9; border: 1px solid #e2e2e2; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+    label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 5px; }
+    input[type="text"], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .checkbox-group input { width: 18px; height: 18px; cursor: pointer; }
+    #drop-zone {
+      border: 3px dashed #0070f3; border-radius: 12px; padding: 40px;
+      text-align: center; font-weight: bold; background: #f0f7ff; cursor: pointer; transition: 0.2s ease;
+    }
+    #drop-zone.hover { border-color: #0051b3; background: #e1effe; }
+    #status { margin-top: 15px; font-weight: 600; text-align: center; color: #555; }
+  </style>
+</head>
+<body>
+
+  <h2>Team Image Resizer</h2>
+
+  <div class="card">
+    <div class="checkbox-group">
+      <input type="checkbox" id="enable-trim" checked>
+      <label for="enable-trim" style="margin:0;">Enable Auto-Trim (Crop whitespace/borders)</label>
+    </div>
+
+    <div class="form-grid">
+      <div>
+        <label for="resize-dim">Resize Geometry (W x H)</label>
+        <input type="text" id="resize-dim" value="1800x1800">
+      </div>
+      <div>
+        <label for="extent-dim">Canvas Extent (W x H)</label>
+        <input type="text" id="extent-dim" value="2000x2000">
+      </div>
+      <div>
+        <label for="gravity-val">Alignment (Gravity)</label>
+        <select id="gravity-val">
+          <option value="Center" selected>Center</option>
+          <option value="North">North (Top)</option>
+          <option value="South">South (Bottom)</option>
+          <option value="West">West (Left)</option>
+          <option value="East">East (Right)</option>
+        </select>
+      </div>
+      <div>
+        <label for="output-format">Format</label>
+        <select id="output-format">
+          <option value="Png" selected>PNG</option>
+          <option value="Jpeg">JPEG</option>
+          <option value="Webp">WEBP</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="drop-zone">Drag and drop images here to process</div>
+  <div id="status">Ready...</div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const status = document.getElementById('status');
+
+    // Drag events
+    ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('hover')));
+    ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('hover')));
+    
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', e => e.preventDefault());
+
+    // Helper to parse "1800x1800" text inputs into dimensions
+    function parseGeometry(str) {
+      const parts = str.toLowerCase().split('x');
+      return { width: parseInt(parts[0]) || 0, height: parseInt(parts[1]) || 0 };
+    }
+
+    dropZone.addEventListener('drop', async (e) => {
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (!files.length) return alert('Please drop valid image files!');
+
+      // Read UI inputs
+      const doTrim = document.getElementById('enable-trim').checked;
+      const resizeVals = parseGeometry(document.getElementById('resize-dim').value);
+      const extentVals = parseGeometry(document.getElementById('extent-dim').value);
+      const gravityChoice = document.getElementById('gravity-val').value;
+      const formatChoice = document.getElementById('output-format').value;
+
+      status.innerText = `Loading ImageMagick Engine...`;
+      
+      const { initializeImageMagick, ImageMagick, MagickFormat, MagickGeometry, Gravity } = window['@imagemagick/magick-wasm'];
+      
+      const wasmUrl = 'https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/magick.wasm';
+      const response = await fetch(wasmUrl);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      
+      await initializeImageMagick(bytes);
+
+      const zip = new JSZip();
+      const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        status.innerText = `Processing (${i + 1}/${files.length}): ${file.name}...`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const content = new Uint8Array(arrayBuffer);
+
+        ImageMagick.read(content, (img) => {
+          // 1. Trim if checked
+          if (doTrim) {
+            img.trim();
+          }
+
+          // 2. Resize
+          if (resizeVals.width && resizeVals.height) {
+            img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
+          }
+
+          // 3. Extent & Gravity
+          if (extentVals.width && extentVals.height) {
+            img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
+          }
+
+          // 4. Output
+          img.write(MagickFormat[formatChoice], (outData) => {
+            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            zip.file(`${baseName}.${ext}`, outData);
+          });
+        });
+      }
+
+      status.innerText = 'Creating ZIP file...';
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `processed_images.zip`;
+      link.click();
+
+      status.innerText = 'Done! ZIP file downloaded.';
+    });
+  </script>
+</body>
+</html>
