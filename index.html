@@ -94,7 +94,12 @@
 
       status.innerText = `Loading ImageMagick Engine...`;
       
-      const { initializeImageMagick, ImageMagick, MagickFormat, MagickGeometry, Gravity } = window['@imagemagick/magick-wasm'];
+      // Access the global Magick object attached by the CDN script
+      const { initializeImageMagick, ImageMagick, MagickFormat, MagickGeometry, Gravity } = window.Magick || window['@imagemagick/magick-wasm'];
+
+      if (!initializeImageMagick) {
+      throw new Error("Magick-WASM library failed to load from CDN.");
+      }
       
       // Fetch directly from your own GitHub Pages directory
       const response = await fetch('./magick.wasm');
