@@ -96,8 +96,9 @@
       
       const { initializeImageMagick, ImageMagick, MagickFormat, MagickGeometry, Gravity } = window['@imagemagick/magick-wasm'];
       
-      const wasmUrl = 'https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/magick.wasm';
-      const response = await fetch(wasmUrl);
+      // Fetch directly from your own GitHub Pages directory
+      const response = await fetch('./magick.wasm');
+      if (!response.ok) throw new Error(`Failed to load WASM file: ${response.statusText}`);
       const bytes = new Uint8Array(await response.arrayBuffer());
       
       await initializeImageMagick(bytes);
