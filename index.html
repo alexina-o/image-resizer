@@ -66,8 +66,7 @@
   <div id="drop-zone">Drag and drop images here to process</div>
   <div id="status">Ready...</div>
 
-  <script type="module">
-    // Stable UNPKG bundle import
+ <script type="module">
     import { 
       initializeImageMagick, 
       ImageMagick, 
@@ -90,6 +89,42 @@
       return { width: parseInt(parts[0]) || 0, height: parseInt(parts[1]) || 0 };
     }
 
+    // Helper function to safely process a single image as an isolated Promise
+    function processImage(file, doTrim, resizeVals, extentVals, gravityChoice, formatChoice) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const content = new Uint8Array(arrayBuffer);
+
+          ImageMagick.read(content, (img) => {
+            if (doTrim) {
+              img.trim();
+            }
+            if (resizeVals.width && resizeVals.height) {
+              img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
+            }
+            if (extentVals.width && extentVals.height) {
+              img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
+            }
+
+            img.write(MagickFormat[formatChoice], (outData) => {
+              // Create a standalone Uint8Array copy of the buffer data
+              const bufferCopy = new Uint8Array(outData);
+              const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+              const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
+              
+              resolve({
+                filename: `${baseName}.${ext}`,
+                data: bufferCopy
+              });
+            });
+          });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
     dropZone.addEventListener('drop', async (e) => {
       e.preventDefault();
       const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
@@ -104,7 +139,6 @@
       status.innerText = `Loading ImageMagick Engine...`;
 
       try {
-        // Loads your local magick.wasm file directly from your GitHub root
         const response = await fetch('./magick.wasm');
         if (!response.ok) throw new Error(`Failed to load ./magick.wasm file: ${response.statusText}`);
         const bytes = new Uint8Array(await response.arrayBuffer());
@@ -112,30 +146,14 @@
         await initializeImageMagick(bytes);
 
         const zip = new JSZip();
-        const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
 
+        // Process images sequentially to avoid WebAssembly memory conflicts
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           status.innerText = `Processing (${i + 1}/${files.length}): ${file.name}...`;
 
-          const arrayBuffer = await file.arrayBuffer();
-          const content = new Uint8Array(arrayBuffer);
-
-          ImageMagick.read(content, (img) => {
-            if (doTrim) {
-              img.trim();
-            }
-            if (resizeVals.width && resizeVals.height) {
-              img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
-            }
-            if (extentVals.width && extentVals.height) {
-              img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
-            }
-            img.write(MagickFormat[formatChoice], (outData) => {
-              const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-              zip.file(`${baseName}.${ext}`, outData);
-            });
-          });
+          const processed = await processImage(file, doTrim, resizeVals, extentVals, gravityChoice, formatChoice);
+          zip.file(processed.filename, processed.data);
         }
 
         status.innerText = 'Creating ZIP file...';
