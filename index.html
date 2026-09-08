@@ -66,15 +66,15 @@
   <div id="drop-zone">Drag and drop images here to process</div>
   <div id="status">Ready...</div>
 
-  <!-- ES Module import eliminates window variable destructuring errors -->
   <script type="module">
+    // Stable UNPKG bundle import
     import { 
       initializeImageMagick, 
       ImageMagick, 
       MagickFormat, 
       MagickGeometry, 
       Gravity 
-    } from 'https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/index.rh.js';
+    } from 'https://unpkg.com/@imagemagick/magick-wasm@0.0.30/dist/index.js';
 
     const dropZone = document.getElementById('drop-zone');
     const status = document.getElementById('status');
@@ -91,6 +91,7 @@
     }
 
     dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
       const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
       if (!files.length) return alert('Please drop valid image files!');
 
@@ -103,7 +104,7 @@
       status.innerText = `Loading ImageMagick Engine...`;
 
       try {
-        // Fetch local WASM binary from your GitHub repository root
+        // Loads your local magick.wasm file directly from your GitHub root
         const response = await fetch('./magick.wasm');
         if (!response.ok) throw new Error(`Failed to load ./magick.wasm file: ${response.statusText}`);
         const bytes = new Uint8Array(await response.arrayBuffer());
