@@ -6,7 +6,15 @@
   <title>Image Resizer</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 40px auto; padding: 0 20px; color: #333; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      max-width: 650px; 
+      margin: 40px auto; 
+      padding: 0 20px 100px 20px; 
+      color: #333; 
+      position: relative;
+      min-height: 90vh;
+    }
     .card { background: #f9f9f9; border: 1px solid #e2e2e2; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
     .full-width { grid-column: span 2; }
@@ -21,6 +29,24 @@
     }
     #drop-zone.hover { border-color: #0051b3; background: #e1effe; }
     #status { margin-top: 15px; font-weight: 600; text-align: center; color: #555; }
+    .contact-footer {
+      font-size: 12px;
+      color: #777;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .corner-avatar {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      border: 2px solid #fff;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -78,6 +104,10 @@
   <!-- Drop Zone -->
   <div id="drop-zone">Drag and drop images here to process</div>
   <div id="status">Ready...</div>
+  <div class="contact-footer">Issues? Questions? Improvements? Contact alexina on Slack</div>
+
+  <!-- Embedded Corner Image -->
+  <img class="corner-avatar" src="alex.jpg" alt="Alexina Avatar">
 
   <script type="module">
     import { 
@@ -97,13 +127,11 @@
     const gravitySelect = document.getElementById('gravity-val');
     const formatSelect = document.getElementById('output-format');
 
-    // Preset Configurations
     const presets = {
       packshot: { trim: true, resize: '1800x1800', extent: '2000x2000', gravity: 'Center' },
       lifestyle: { trim: false, resize: '2000x2000', extent: '2000x2000', gravity: 'Center' }
     };
 
-    // Apply preset when selected from dropdown
     presetSelect.addEventListener('change', () => {
       const selected = presetSelect.value;
       if (presets[selected]) {
@@ -114,14 +142,9 @@
       }
     });
 
-    // Automatically switch preset selection to "Custom" if any input is manually edited
     [trimCheckbox, resizeInput, extentInput, gravitySelect, formatSelect].forEach(element => {
-      element.addEventListener('input', () => {
-        presetSelect.value = 'custom';
-      });
-      element.addEventListener('change', () => {
-        presetSelect.value = 'custom';
-      });
+      element.addEventListener('input', () => { presetSelect.value = 'custom'; });
+      element.addEventListener('change', () => { presetSelect.value = 'custom'; });
     });
 
     ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('hover')));
