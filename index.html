@@ -8,7 +8,7 @@
   <style>
     body { 
       font-family: system-ui, -apple-system, sans-serif; 
-      max-width: 650px; 
+      max-width: 700px; 
       margin: 40px auto; 
       padding: 0 20px 100px 20px; 
       color: #333; 
@@ -21,92 +21,85 @@
     label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 3px; }
     .help-text { font-size: 12px; color: #666; font-weight: normal; margin-bottom: 6px; display: block; }
     input[type="text"], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-    .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-    .checkbox-group input { width: 18px; height: 18px; cursor: pointer; }
-    #drop-zone {
-      border: 3px dashed #0070f3; border-radius: 12px; padding: 40px;
+    
+    /* Dual Drop Zones Grid */
+    .drop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+    .drop-box {
+      border: 3px dashed #0070f3; border-radius: 12px; padding: 30px 15px;
       text-align: center; font-weight: bold; background: #f0f7ff; cursor: pointer; transition: 0.2s ease;
     }
-    #drop-zone.hover { border-color: #0051b3; background: #e1effe; }
+    .drop-box.hover { border-color: #0051b3; background: #e1effe; }
+    .drop-box .badge { display: block; margin-top: 10px; font-size: 12px; color: #0070f3; font-weight: normal; }
+
+    /* Action Button */
+    .process-btn {
+      width: 100%; padding: 12px; background: #0070f3; color: white; border: none;
+      border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s ease;
+    }
+    .process-btn:hover { background: #0051b3; }
+    .process-btn:disabled { background: #ccc; cursor: not-allowed; }
+
     #status { margin-top: 15px; font-weight: 600; text-align: center; color: #555; }
-    .contact-footer {
-      font-size: 12px;
-      color: #777;
-      text-align: center;
-      margin-top: 8px;
-    }
+    .contact-footer { font-size: 12px; color: #777; text-align: center; margin-top: 8px; }
     .corner-avatar {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 90px;
-      height: 90px;
-      border-radius: 50%;
-      object-fit: cover;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-      border: 2px solid #fff;
-      z-index: 1000;
+      position: fixed; bottom: 20px; right: 20px; width: 90px; height: 90px;
+      border-radius: 50%; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      border: 2px solid #fff; z-index: 1000;
     }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+    .checkbox-group input { width: 16px; height: 16px; cursor: pointer; }
   </style>
 </head>
 <body>
 
   <h2>Image Resizer</h2>
 
-  <!-- Controls Panel -->
+  <!-- Renaming & Output Settings -->
   <div class="card">
-    <div class="full-width">
-      <label for="preset-select">Preset Options</label>
-      <select id="preset-select">
-        <option value="packshot" selected>Packshot / Swatch</option>
-        <option value="lifestyle">Lifestyle</option>
-        <option value="custom">Custom</option>
-      </select>
-    </div>
-
-    <div class="checkbox-group">
-      <input type="checkbox" id="enable-trim" checked>
-      <label for="enable-trim" style="margin:0;">Enable Auto-Trim (Crop whitespace/borders)</label>
-    </div>
-
     <div class="form-grid">
       <div>
-        <label for="resize-dim">Resize Geometry (W x H)</label>
-        <span class="help-text">Size of product</span>
-        <input type="text" id="resize-dim" value="1800x1800">
+        <label for="prefix-input">Custom File Prefix (Optional)</label>
+        <span class="help-text">E.g., SKU_1234 (Leaves original name if empty)</span>
+        <input type="text" id="prefix-input" placeholder="Enter prefix...">
       </div>
       <div>
-        <label for="extent-dim">Canvas Extent (W x H)</label>
-        <span class="help-text">Final image size</span>
-        <input type="text" id="extent-dim" value="2000x2000">
-      </div>
-      <div>
-        <label for="gravity-val">Alignment (Gravity)</label>
-        <select id="gravity-val">
-          <option value="Center" selected>Center</option>
-          <option value="North">North (Top)</option>
-          <option value="South">South (Bottom)</option>
-          <option value="West">West (Left)</option>
-          <option value="East">East (Right)</option>
-        </select>
-      </div>
-      <div>
-        <label for="output-format">Format</label>
+        <label for="output-format">Output Format</label>
+        <span class="help-text">Select target image format</span>
         <select id="output-format">
           <option value="Png" selected>PNG</option>
           <option value="Jpeg">JPEG</option>
           <option value="Webp">WEBP</option>
         </select>
       </div>
+      <div class="full-width">
+        <div class="checkbox-group">
+          <input type="checkbox" id="enable-sequence" checked>
+          <label for="enable-sequence" style="margin:0;">Enable Sequential Numbering (_01, _02... Packshot first, then Lifestyle)</label>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Drop Zone -->
-  <div id="drop-zone">Drag and drop images here to process</div>
+  <!-- Dual Drop Zones -->
+  <div class="drop-grid">
+    <div id="drop-packshot" class="drop-box">
+      Packshot / Swatch
+      <span class="help-text" style="margin-top:5px;">Trim: Yes | 1800x1800 -> 2000x2000</span>
+      <span id="badge-packshot" class="badge">0 files queued</span>
+    </div>
+
+    <div id="drop-lifestyle" class="drop-box">
+      Lifestyle
+      <span class="help-text" style="margin-top:5px;">Trim: Optional | 2000x2000 -> 2000x2000</span>
+      <span id="badge-lifestyle" class="badge">0 files queued</span>
+    </div>
+  </div>
+
+  <button id="process-btn" class="process-btn">Process All & Download ZIP</button>
+
   <div id="status">Ready...</div>
   <div class="contact-footer">Issues? Questions? Improvements? Contact alexina on Slack</div>
 
-  <!-- Embedded Corner Image -->
   <img class="corner-avatar" src="alex.jpg" alt="Alexina Avatar">
 
   <script type="module">
@@ -118,70 +111,77 @@
       Gravity 
     } from 'https://unpkg.com/@imagemagick/magick-wasm@0.0.30/dist/index.js';
 
-    const dropZone = document.getElementById('drop-zone');
+    const dropPackshot = document.getElementById('drop-packshot');
+    const dropLifestyle = document.getElementById('drop-lifestyle');
+    const badgePackshot = document.getElementById('badge-packshot');
+    const badgeLifestyle = document.getElementById('badge-lifestyle');
+    const processBtn = document.getElementById('process-btn');
     const status = document.getElementById('status');
-    const presetSelect = document.getElementById('preset-select');
-    const trimCheckbox = document.getElementById('enable-trim');
-    const resizeInput = document.getElementById('resize-dim');
-    const extentInput = document.getElementById('extent-dim');
-    const gravitySelect = document.getElementById('gravity-val');
+    
+    const prefixInput = document.getElementById('prefix-input');
+    const enableSequence = document.getElementById('enable-sequence');
     const formatSelect = document.getElementById('output-format');
 
-    const presets = {
-      packshot: { trim: true, resize: '1800x1800', extent: '2000x2000', gravity: 'Center' },
-      lifestyle: { trim: false, resize: '2000x2000', extent: '2000x2000', gravity: 'Center' }
-    };
+    // Staging queues
+    let packshotQueue = [];
+    let lifestyleQueue = [];
 
-    presetSelect.addEventListener('change', () => {
-      const selected = presetSelect.value;
-      if (presets[selected]) {
-        trimCheckbox.checked = presets[selected].trim;
-        resizeInput.value = presets[selected].resize;
-        extentInput.value = presets[selected].extent;
-        gravitySelect.value = presets[selected].gravity;
-      }
+    // Drag and drop event bindings
+    [dropPackshot, dropLifestyle].forEach(zone => {
+      ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, (evt) => {
+        evt.preventDefault();
+        zone.classList.add('hover');
+      }));
+      ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, (evt) => {
+        evt.preventDefault();
+        zone.classList.remove('hover');
+      }));
     });
 
-    [trimCheckbox, resizeInput, extentInput, gravitySelect, formatSelect].forEach(element => {
-      element.addEventListener('input', () => { presetSelect.value = 'custom'; });
-      element.addEventListener('change', () => { presetSelect.value = 'custom'; });
-    });
-
-    ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('hover')));
-    ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('hover')));
-    
     document.body.addEventListener('dragover', e => e.preventDefault());
     document.body.addEventListener('drop', e => e.preventDefault());
+
+    // Drop handlers
+    dropPackshot.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      packshotQueue.push(...files);
+      badgePackshot.innerText = `${packshotQueue.length} file(s) queued`;
+    });
+
+    dropLifestyle.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      lifestyleQueue.push(...files);
+      badgeLifestyle.innerText = `${lifestyleQueue.length} file(s) queued`;
+    });
 
     function parseGeometry(str) {
       const parts = str.toLowerCase().split('x');
       return { width: parseInt(parts[0]) || 0, height: parseInt(parts[1]) || 0 };
     }
 
-    function processImage(file, doTrim, resizeVals, extentVals, gravityChoice, formatChoice) {
+    function processImage(file, settings, outputName, formatChoice) {
       return new Promise(async (resolve, reject) => {
         try {
           const arrayBuffer = await file.arrayBuffer();
           const content = new Uint8Array(arrayBuffer);
 
           ImageMagick.read(content, (img) => {
-            if (doTrim) {
+            if (settings.trim) {
               img.trim();
             }
-            if (resizeVals.width && resizeVals.height) {
-              img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
+            if (settings.resize.width && settings.resize.height) {
+              img.resize(new MagickGeometry(settings.resize.width, settings.resize.height));
             }
-            if (extentVals.width && extentVals.height) {
-              img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
+            if (settings.extent.width && settings.extent.height) {
+              img.extent(new MagickGeometry(settings.extent.width, settings.extent.height), Gravity[settings.gravity]);
             }
 
             img.write(MagickFormat[formatChoice], (outData) => {
               const bufferCopy = new Uint8Array(outData);
-              const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
               const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
               
               resolve({
-                filename: `${baseName}.${ext}`,
+                filename: `${outputName}.${ext}`,
                 data: bufferCopy
               });
             });
@@ -192,18 +192,22 @@
       });
     }
 
-    dropZone.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-      if (!files.length) return alert('Please drop valid image files!');
+    processBtn.addEventListener('click', async () => {
+      const totalFiles = packshotQueue.length + lifestyleQueue.length;
+      if (totalFiles === 0) return alert('Please drag images into at least one drop zone first!');
 
-      const doTrim = trimCheckbox.checked;
-      const resizeVals = parseGeometry(resizeInput.value);
-      const extentVals = parseGeometry(extentInput.value);
-      const gravityChoice = gravitySelect.value;
-      const formatChoice = formatSelect.value;
-
+      processBtn.disabled = true;
       status.innerText = `Loading ImageMagick Engine...`;
+
+      const formatChoice = formatSelect.value;
+      const customPrefix = prefixInput.value.trim();
+      const useSequence = enableSequence.checked;
+
+      // Packshot preset params: Trim: Yes | Resize: 1800x1800 | Extent: 2000x2000
+      const packshotSettings = { trim: true, resize: parseGeometry('1800x1800'), extent: parseGeometry('2000x2000'), gravity: 'Center' };
+      
+      // Lifestyle preset params: Trim: No | Resize: 2000x2000 | Extent: 2000x2000
+      const lifestyleSettings = { trim: false, resize: parseGeometry('2000x2000'), extent: parseGeometry('2000x2000'), gravity: 'Center' };
 
       try {
         const response = await fetch('./magick.wasm');
@@ -213,13 +217,38 @@
         await initializeImageMagick(bytes);
 
         const zip = new JSZip();
+        let globalCounter = 1;
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          status.innerText = `Processing (${i + 1}/${files.length}): ${file.name}...`;
+        // Process Packshot images first (Priority 1)
+        for (let i = 0; i < packshotQueue.length; i++) {
+          const file = packshotQueue[i];
+          status.innerText = `Processing Packshots (${i + 1}/${packshotQueue.length}): ${file.name}...`;
 
-          const processed = await processImage(file, doTrim, resizeVals, extentVals, gravityChoice, formatChoice);
+          let outName = customPrefix || file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          if (useSequence) {
+            const seqStr = String(globalCounter).padStart(2, '0');
+            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${outName}_${seqStr}`;
+          }
+
+          const processed = await processImage(file, packshotSettings, outName, formatChoice);
           zip.file(processed.filename, processed.data);
+          globalCounter++;
+        }
+
+        // Process Lifestyle images second (Priority 2)
+        for (let i = 0; i < lifestyleQueue.length; i++) {
+          const file = lifestyleQueue[i];
+          status.innerText = `Processing Lifestyle (${i + 1}/${lifestyleQueue.length}): ${file.name}...`;
+
+          let outName = customPrefix || file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          if (useSequence) {
+            const seqStr = String(globalCounter).padStart(2, '0');
+            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${outName}_${seqStr}`;
+          }
+
+          const processed = await processImage(file, lifestyleSettings, outName, formatChoice);
+          zip.file(processed.filename, processed.data);
+          globalCounter++;
         }
 
         status.innerText = 'Creating ZIP file...';
@@ -230,10 +259,18 @@
         link.download = `processed_images.zip`;
         link.click();
 
+        // Reset queues
+        packshotQueue = [];
+        lifestyleQueue = [];
+        badgePackshot.innerText = '0 files queued';
+        badgeLifestyle.innerText = '0 files queued';
+        
         status.innerText = 'Done! ZIP file downloaded.';
       } catch (err) {
         console.error(err);
         status.innerText = `Error: ${err.message}`;
+      } finally {
+        processBtn.disabled = false;
       }
     });
   </script>
