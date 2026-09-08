@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Team Image Resizer & Converter</title>
-  <script src="https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/magick-wasm.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Resizer & Converter</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; max-width: 650px; margin: 40px auto; padding: 0 20px; color: #333; }
@@ -23,8 +23,9 @@
 </head>
 <body>
 
-  <h2>Team Image Resizer</h2>
+  <h2>Image Resizer</h2>
 
+  <!-- Controls Panel -->
   <div class="card">
     <div class="checkbox-group">
       <input type="checkbox" id="enable-trim" checked>
@@ -61,21 +62,29 @@
     </div>
   </div>
 
+  <!-- Drop Zone -->
   <div id="drop-zone">Drag and drop images here to process</div>
   <div id="status">Ready...</div>
 
-  <script>
+  <!-- ES Module import eliminates window variable destructuring errors -->
+  <script type="module">
+    import { 
+      initializeImageMagick, 
+      ImageMagick, 
+      MagickFormat, 
+      MagickGeometry, 
+      Gravity 
+    } from 'https://cdn.jsdelivr.net/npm/@imagemagick/magick-wasm@0.0.30/dist/index.rh.js';
+
     const dropZone = document.getElementById('drop-zone');
     const status = document.getElementById('status');
 
-    // Drag events
     ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('hover')));
     ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('hover')));
     
     document.body.addEventListener('dragover', e => e.preventDefault());
     document.body.addEventListener('drop', e => e.preventDefault());
 
-    // Helper to parse "1800x1800" text inputs into dimensions
     function parseGeometry(str) {
       const parts = str.toLowerCase().split('x');
       return { width: parseInt(parts[0]) || 0, height: parseInt(parts[1]) || 0 };
@@ -85,7 +94,6 @@
       const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
       if (!files.length) return alert('Please drop valid image files!');
 
-      // Read UI inputs
       const doTrim = document.getElementById('enable-trim').checked;
       const resizeVals = parseGeometry(document.getElementById('resize-dim').value);
       const extentVals = parseGeometry(document.getElementById('extent-dim').value);
@@ -93,64 +101,55 @@
       const formatChoice = document.getElementById('output-format').value;
 
       status.innerText = `Loading ImageMagick Engine...`;
-      
-      // Access the global Magick object attached by the CDN script
-      const { initializeImageMagick, ImageMagick, MagickFormat, MagickGeometry, Gravity } = window.Magick || window['@imagemagick/magick-wasm'];
 
-      if (!initializeImageMagick) {
-      throw new Error("Magick-WASM library failed to load from CDN.");
-      }
-      
-      // Fetch directly from your own GitHub Pages directory
-      const response = await fetch('./magick.wasm');
-      if (!response.ok) throw new Error(`Failed to load WASM file: ${response.statusText}`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      
-      await initializeImageMagick(bytes);
+      try {
+        // Fetch local WASM binary from your GitHub repository root
+        const response = await fetch('./magick.wasm');
+        if (!response.ok) throw new Error(`Failed to load ./magick.wasm file: ${response.statusText}`);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        
+        await initializeImageMagick(bytes);
 
-      const zip = new JSZip();
-      const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
+        const zip = new JSZip();
+        const ext = formatChoice.toLowerCase() === 'jpeg' ? 'jpg' : formatChoice.toLowerCase();
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        status.innerText = `Processing (${i + 1}/${files.length}): ${file.name}...`;
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          status.innerText = `Processing (${i + 1}/${files.length}): ${file.name}...`;
 
-        const arrayBuffer = await file.arrayBuffer();
-        const content = new Uint8Array(arrayBuffer);
+          const arrayBuffer = await file.arrayBuffer();
+          const content = new Uint8Array(arrayBuffer);
 
-        ImageMagick.read(content, (img) => {
-          // 1. Trim if checked
-          if (doTrim) {
-            img.trim();
-          }
-
-          // 2. Resize
-          if (resizeVals.width && resizeVals.height) {
-            img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
-          }
-
-          // 3. Extent & Gravity
-          if (extentVals.width && extentVals.height) {
-            img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
-          }
-
-          // 4. Output
-          img.write(MagickFormat[formatChoice], (outData) => {
-            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-            zip.file(`${baseName}.${ext}`, outData);
+          ImageMagick.read(content, (img) => {
+            if (doTrim) {
+              img.trim();
+            }
+            if (resizeVals.width && resizeVals.height) {
+              img.resize(new MagickGeometry(resizeVals.width, resizeVals.height));
+            }
+            if (extentVals.width && extentVals.height) {
+              img.extent(new MagickGeometry(extentVals.width, extentVals.height), Gravity[gravityChoice]);
+            }
+            img.write(MagickFormat[formatChoice], (outData) => {
+              const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+              zip.file(`${baseName}.${ext}`, outData);
+            });
           });
-        });
+        }
+
+        status.innerText = 'Creating ZIP file...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `processed_images.zip`;
+        link.click();
+
+        status.innerText = 'Done! ZIP file downloaded.';
+      } catch (err) {
+        console.error(err);
+        status.innerText = `Error: ${err.message}`;
       }
-
-      status.innerText = 'Creating ZIP file...';
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(zipBlob);
-      link.download = `processed_images.zip`;
-      link.click();
-
-      status.innerText = 'Done! ZIP file downloaded.';
     });
   </script>
 </body>
