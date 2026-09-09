@@ -40,7 +40,23 @@
     .process-btn:disabled { background: #ccc; cursor: not-allowed; }
 
     #status { margin-top: 15px; font-weight: 600; text-align: center; color: #555; }
-    .contact-footer { font-size: 12px; color: #777; text-align: center; margin-top: 8px; }
+    
+    /* How to Use Section */
+    .instructions-card {
+      background: #ffffff;
+      border: 1px solid #e2e2e2;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-top: 25px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.5;
+    }
+    .instructions-card h3 { margin-top: 0; margin-bottom: 8px; font-size: 15px; color: #111; }
+    .instructions-card ol { margin: 0; padding-left: 18px; }
+    .instructions-card li { margin-bottom: 6px; }
+
+    .contact-footer { font-size: 12px; color: #777; text-align: center; margin-top: 20px; }
     .corner-avatar {
       position: fixed; bottom: 20px; right: 20px; width: 90px; height: 90px;
       border-radius: 50%; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
@@ -98,6 +114,18 @@
   <button id="process-btn" class="process-btn">Process All & Download ZIP</button>
 
   <div id="status">Ready...</div>
+
+  <!-- How to Use Section -->
+  <div class="instructions-card">
+    <h3>How to Use</h3>
+    <ol>
+      <li><strong>Queue Your Images:</strong> Drag and drop your files into either the <em>Packshot / Swatch</em> or <em>Lifestyle</em> drop zone depending on the required preset. You can queue images into both boxes before processing.</li>
+      <li><strong>Naming Single Products:</strong> If processing images for a single product, enter a <strong>Custom File Prefix</strong> (e.g., <code>SKU_1234</code>) and keep <strong>Sequential Numbering</strong> checked. Packshots will be numbered first (<code>_01</code>, <code>_02</code>), followed directly by Lifestyle images.</li>
+      <li><strong>Naming Multiple Products:</strong> If processing a batch containing multiple different products (e.g., a foundation line with multiple color variants), leave the prefix blank and uncheck sequential numbering to retain original filenames.</li>
+      <li><strong>Export:</strong> Click <strong>Process All & Download ZIP</strong> to resize, align, and download your complete batch in a single zip archive.</li>
+    </ol>
+  </div>
+
   <div class="contact-footer">Issues? Questions? Improvements? Contact alexina on Slack</div>
 
   <img class="corner-avatar" src="alex.jpg" alt="Alexina Avatar">
@@ -122,11 +150,14 @@
     const enableSequence = document.getElementById('enable-sequence');
     const formatSelect = document.getElementById('output-format');
 
-    // Staging queues
     let packshotQueue = [];
     let lifestyleQueue = [];
 
-    // Drag and drop event bindings
+    // Clean slashes and OS-illegal characters from filenames
+    function sanitizeFilename(name) {
+      return name.replace(/[/\\?%*:|"<>]/g, '_').trim();
+    }
+
     [dropPackshot, dropLifestyle].forEach(zone => {
       ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, (evt) => {
         evt.preventDefault();
@@ -141,7 +172,6 @@
     document.body.addEventListener('dragover', e => e.preventDefault());
     document.body.addEventListener('drop', e => e.preventDefault());
 
-    // Drop handlers
     dropPackshot.addEventListener('drop', (e) => {
       const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
       packshotQueue.push(...files);
@@ -203,10 +233,7 @@
       const customPrefix = prefixInput.value.trim();
       const useSequence = enableSequence.checked;
 
-      // Packshot preset params: Trim: Yes | Resize: 1800x1800 | Extent: 2000x2000
       const packshotSettings = { trim: true, resize: parseGeometry('1800x1800'), extent: parseGeometry('2000x2000'), gravity: 'Center' };
-      
-      // Lifestyle preset params: Trim: No | Resize: 2000x2000 | Extent: 2000x2000
       const lifestyleSettings = { trim: false, resize: parseGeometry('2000x2000'), extent: parseGeometry('2000x2000'), gravity: 'Center' };
 
       try {
@@ -219,32 +246,40 @@
         const zip = new JSZip();
         let globalCounter = 1;
 
-        // Process Packshot images first (Priority 1)
+        // Process Packshot Queue
         for (let i = 0; i < packshotQueue.length; i++) {
           const file = packshotQueue[i];
           status.innerText = `Processing Packshots (${i + 1}/${packshotQueue.length}): ${file.name}...`;
 
-          let outName = customPrefix || file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          let baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          let outName = customPrefix || baseName;
+
           if (useSequence) {
             const seqStr = String(globalCounter).padStart(2, '0');
-            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${outName}_${seqStr}`;
+            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${baseName}_${seqStr}`;
           }
+
+          outName = sanitizeFilename(outName);
 
           const processed = await processImage(file, packshotSettings, outName, formatChoice);
           zip.file(processed.filename, processed.data);
           globalCounter++;
         }
 
-        // Process Lifestyle images second (Priority 2)
+        // Process Lifestyle Queue
         for (let i = 0; i < lifestyleQueue.length; i++) {
           const file = lifestyleQueue[i];
           status.innerText = `Processing Lifestyle (${i + 1}/${lifestyleQueue.length}): ${file.name}...`;
 
-          let outName = customPrefix || file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          let baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          let outName = customPrefix || baseName;
+
           if (useSequence) {
             const seqStr = String(globalCounter).padStart(2, '0');
-            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${outName}_${seqStr}`;
+            outName = customPrefix ? `${customPrefix}_${seqStr}` : `${baseName}_${seqStr}`;
           }
+
+          outName = sanitizeFilename(outName);
 
           const processed = await processImage(file, lifestyleSettings, outName, formatChoice);
           zip.file(processed.filename, processed.data);
@@ -259,7 +294,6 @@
         link.download = `processed_images.zip`;
         link.click();
 
-        // Reset queues
         packshotQueue = [];
         lifestyleQueue = [];
         badgePackshot.innerText = '0 files queued';
